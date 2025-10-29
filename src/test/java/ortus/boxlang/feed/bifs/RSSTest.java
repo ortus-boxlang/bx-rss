@@ -43,7 +43,26 @@ public class RSSTest extends BaseIntegrationTest {
 		assertThat( resultStruct.containsKey( "comments" ) ).isTrue();
 		assertThat( resultStruct.containsKey( "enclosures" ) ).isTrue();
 		assertThat( resultStruct.containsKey( "channelTitle" ) ).isTrue();
+	}
 
+	@DisplayName( "Test rss bif feed with filter closure" )
+	@Test
+	public void testRSSFeedWithFilter() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			feedItems = rss(
+				'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml',
+				( item ) -> false
+			);
+			println( feedItems )
+			count = feedItems.size()
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isEqualTo( 0 );
 	}
 
 }

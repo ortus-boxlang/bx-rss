@@ -30,15 +30,20 @@ class {
 	 * The URL can be an http(s) URL or a local file path (file:/path/to/file) URI
 	 *
 	 * @urls URL or Array of URLs to read RSS feed from
+	 * @filter (optional) A filter closure/lambda to filter feed items by certain criteria
 	 *
 	 * @return Array of struct feed items with title, content, description, pubdate, updated, link, author, category, categories, guid, isPermaLink, comments, enclosures, channelTitle
 	 */
-    function invoke( required urls ) {
+    function invoke( required urls, filter=( i ) -> true ) {
 
 		if( isSimpleValue( urls ) ) urls = [ urls ]
 
 		// Now read the feeds
-		items = variables.rssOb.read( urls ).sorted().toList()
+		items = variables.rssOb
+			.read( urls )
+			.filter( filter )
+			.sorted()
+			.toList()
 
 		return items.map( i => {
 			var result = {
