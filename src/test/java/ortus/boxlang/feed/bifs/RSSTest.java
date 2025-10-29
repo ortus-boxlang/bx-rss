@@ -92,4 +92,49 @@ public class RSSTest extends BaseIntegrationTest {
 		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isEqualTo( 3 );
 	}
 
+	@DisplayName( "Test rss bif with iTunes podcast feed" )
+	@Test
+	public void testItunesPodcastFeed() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			feedData = rss( urls='https://feeds.theincomparable.com/batmanuniversity', itunes=true );
+			println( feedData )
+			feedItems = feedData.items
+			channel = feedData.channel
+			count = feedItems.size()
+			result = feedItems[ 1 ]
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 1 );
+
+		// Verify iTunes channel metadata
+		IStruct channelStruct = variables.getAsStruct( Key.of( "channel" ) );
+		assertThat( channelStruct.containsKey( "itunesImage" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesCategories" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesExplicit" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesAuthor" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesTitle" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesSubtitle" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesSummary" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesOwner" ) ).isTrue();
+
+		// Verify iTunes item fields
+		IStruct resultStruct = variables.getAsStruct( result );
+		assertThat( resultStruct.containsKey( "itunesDuration" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesExplicit" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesTitle" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesSubtitle" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesSummary" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesKeywords" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesEpisode" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesSeason" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesEpisodeType" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesImage" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesBlock" ) ).isTrue();
+	}
+
 }

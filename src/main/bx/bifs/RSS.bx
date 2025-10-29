@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 import java:com.apptasticsoftware.rssreader.RssReader@bxrss;
+import java:com.apptasticsoftware.rssreader.module.itunes.ItunesRssReader@bxrss;
 
 @BoxBIF
 class {
 
 	function init() {
 		variables.rssOb = new RssReader();
+		variables.itunesRssOb = new ItunesRssReader();
 	}
 
 	/**
@@ -32,15 +34,19 @@ class {
 	 * @urls URL or Array of URLs to read RSS feed from
 	 * @filter (optional) A filter closure/lambda to filter feed items by certain criteria
 	 * @maxItems (optional) Maximum number of items to return (0 = unlimited)
+	 * @itunes (optional) Parse iTunes podcast extensions (default: false)
 	 *
 	 * @return Struct with 'items' array and 'channel' metadata
 	 */
-    function invoke( required urls, filter=( i ) -> true, numeric maxItems=0 ) {
+    function invoke( required urls, filter=( i ) -> true, numeric maxItems=0, boolean itunes=false ) {
 
 		if( isSimpleValue( urls ) ) urls = [ urls ]
 
+		// Select the appropriate reader based on itunes parameter
+		var reader = arguments.itunes ? variables.itunesRssOb : variables.rssOb
+
 		// Now read the feeds
-		var itemStream = variables.rssOb
+		var itemStream = reader
 			.read( urls )
 			.filter( filter )
 			.sorted()
@@ -73,6 +79,34 @@ class {
 					var imgUrl = img.getUrl()
 					channelInfo.image = isNull( imgUrl ) || !len( imgUrl ) ? '' : imgUrl
 				} )
+
+				// Add iTunes podcast channel fields if requested
+				if( itunes ) {
+					channelInfo.itunesImage = isNull( channel.getItunesImage() ) ? '' : channel.getItunesImage()
+					channelInfo.itunesCategories = channel.getItunesCategories()
+					channelInfo.itunesExplicit = isNull( channel.getItunesExplicit() ) ? false : channel.getItunesExplicit()
+					channelInfo.itunesAuthor = channel.getItunesAuthor().orElse( '' )
+					channelInfo.itunesTitle = channel.getItunesTitle().orElse( '' )
+					channelInfo.itunesSubtitle = channel.getItunesSubtitle().orElse( '' )
+					channelInfo.itunesSummary = isNull( channel.getItunesSummary() ) ? '' : channel.getItunesSummary()
+					channelInfo.itunesType = channel.getItunesType().orElse( '' )
+					channelInfo.itunesNewFeedUrl = channel.getItunesNewFeedUrl().orElse( '' )
+					channelInfo.itunesBlock = channel.isItunesBlock()
+					channelInfo.itunesComplete = channel.isItunesComplete()
+					
+					// iTunes owner
+					channel.getItunesOwner().ifPresent( owner => {
+						channelInfo.itunesOwner = {
+							name: owner.getName().orElse( '' ),
+							email: isNull( owner.getEmail() ) ? '' : owner.getEmail()
+						}
+					} )
+					
+					// Default empty owner if not present
+					if( !structKeyExists( channelInfo, 'itunesOwner' ) ) {
+						channelInfo.itunesOwner = { name: '', email: '' }
+					}
+				}
 			}
 		}
 
@@ -92,6 +126,21 @@ class {
 				comments: '',
 				enclosures: [],
 				channelTitle: ''
+			}
+
+			// Add iTunes-specific fields if requested
+			if( itunes ) {
+				result.itunesDuration = ''
+				result.itunesExplicit = false
+				result.itunesTitle = ''
+				result.itunesSubtitle = ''
+				result.itunesSummary = ''
+				result.itunesKeywords = ''
+				result.itunesEpisode = 0
+				result.itunesSeason = 0
+				result.itunesEpisodeType = ''
+				result.itunesImage = ''
+				result.itunesBlock = false
 			}
 
 			i.getTitle().ifPresent( t => result.title = t )
@@ -138,6 +187,21 @@ class {
 			i.getUpdatedZonedDateTime().ifPresent( d => {
 				result.updated = parseDateTime( d )
 			} )
+
+			// Extract iTunes podcast fields if enabled
+			if( itunes ) {
+				i.getItunesDuration().ifPresent( d => result.itunesDuration = d )
+				result.itunesExplicit = i.isItunesExplicit()
+				i.getItunesTitle().ifPresent( t => result.itunesTitle = t )
+				i.getItunesSubtitle().ifPresent( s => result.itunesSubtitle = s )
+				i.getItunesSummary().ifPresent( s => result.itunesSummary = s )
+				i.getItunesKeywords().ifPresent( k => result.itunesKeywords = k )
+				i.getItunesEpisode().ifPresent( e => result.itunesEpisode = e )
+				i.getItunesSeason().ifPresent( s => result.itunesSeason = s )
+				i.getItunesEpisodeType().ifPresent( t => result.itunesEpisodeType = t )
+				i.getItunesImage().ifPresent( img => result.itunesImage = img )
+				result.itunesBlock = i.isItunesBlock()
+			}
 
 			return result
 		} )
