@@ -167,4 +167,93 @@ public class RSSTest extends BaseIntegrationTest {
 		assertThat( thumbnailStruct.containsKey( "time" ) ).isTrue();
 	}
 
+	@DisplayName( "Test auto-detection of iTunes podcast fields (no explicit flag)" )
+	@Test
+	public void testAutoDetectItunesFeed() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			// Read iTunes podcast feed WITHOUT itunes=true flag
+			feedData = rss( urls='https://feeds.theincomparable.com/batmanuniversity' );
+			feedItems = feedData.items
+			channel = feedData.channel
+			count = feedItems.size()
+			result = feedItems[ 1 ]
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 1 );
+
+		// Verify iTunes channel metadata is auto-detected
+		IStruct channelStruct = variables.getAsStruct( Key.of( "channel" ) );
+		assertThat( channelStruct.containsKey( "itunesImage" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesCategories" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "itunesAuthor" ) ).isTrue();
+
+		// Verify iTunes item fields are auto-detected
+		IStruct resultStruct = variables.getAsStruct( result );
+		assertThat( resultStruct.containsKey( "itunesDuration" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "itunesExplicit" ) ).isTrue();
+	}
+
+	@DisplayName( "Test auto-detection of Media RSS fields (no explicit flag)" )
+	@Test
+	public void testAutoDetectMediaRssFeed() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			// Read Media RSS feed WITHOUT mediaRss=true flag
+			feedData = rss( urls='https://vimeo.com/channels/staffpicks/videos/rss' );
+			feedItems = feedData.items
+			count = feedItems.size()
+			result = feedItems[ 1 ]
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 1 );
+
+		// Verify Media RSS item fields are auto-detected
+		IStruct resultStruct = variables.getAsStruct( result );
+		assertThat( resultStruct.containsKey( "mediaThumbnail" ) ).isTrue();
+
+		// Verify thumbnail structure
+		IStruct thumbnailStruct = resultStruct.getAsStruct( Key.of( "mediaThumbnail" ) );
+		assertThat( thumbnailStruct.containsKey( "url" ) ).isTrue();
+		assertThat( thumbnailStruct.containsKey( "width" ) ).isTrue();
+		assertThat( thumbnailStruct.containsKey( "height" ) ).isTrue();
+	}
+
+	@DisplayName( "Test regular RSS feed without extensions (auto-detect returns no extensions)" )
+	@Test
+	public void testAutoDetectRegularRssFeed() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			// Read Engadget RSS feed - basic RSS without iTunes/Media extensions
+			feedData = rss( urls='https://www.engadget.com/rss.xml' );
+			feedItems = feedData.items
+			count = feedItems.size()
+			result = feedItems[ 1 ]
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 1 );
+
+		// Verify NO iTunes/Media RSS fields in regular feed
+		IStruct resultStruct = variables.getAsStruct( result );
+		assertThat( resultStruct.containsKey( "itunesDuration" ) ).isFalse();
+		assertThat( resultStruct.containsKey( "mediaThumbnail" ) ).isFalse();
+
+		// But regular fields should be present
+		assertThat( resultStruct.containsKey( "title" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "link" ) ).isTrue();
+		assertThat( resultStruct.containsKey( "description" ) ).isTrue();
+	}
+
 }

@@ -34,17 +34,17 @@ class{
 	}
 
 	/**
-	 * Reads RSS feeds from the given URLs with optional filtering, item limit, and iTunes support.
+	 * Reads RSS feeds from the given URLs with optional filtering, item limit, and auto-detected extension support.
 	 *
 	 * @param urls A single URL or an array of feed URLs to read.
 	 * @param filter A function to filter items; defaults to a function that returns true for all items.
 	 * @param maxItems Maximum number of items to return; 0 means no limit.
-	 * @param itunes Boolean indicating whether to include iTunes-specific fields.
-	 * @param mediaRss Boolean indicating whether to include Media RSS fields.
+	 * @param itunes Boolean to force iTunes reader. When false (default), auto-detects iTunes fields if present.
+	 * @param mediaRss Boolean to force Media RSS reader. When false (default), auto-detects Media RSS fields if present.
 	 * @param userAgent Custom User-Agent string for HTTP requests.
 	 * @param timeout Timeout in seconds for HTTP requests.
 	 *
-	 * @return Struct with 'items' array and 'channel' metadata
+	 * @return Struct with 'items' array and 'channel' metadata (extension fields included automatically when present)
 	 */
 	static function readFeed(
 		required urls,
@@ -59,12 +59,20 @@ class{
 		if( isSimpleValue( urls ) ) urls = [ urls ]
 
 		// Select the appropriate reader based on parameters
+		// When neither itunes nor mediaRss is explicitly set, we'll auto-detect by trying iTunes first
+		// (since iTunes podcasts are more common than Media RSS)
+		var autoDetectExtensions = false
+		var reader = static.rssOb
+
 		if( arguments.itunes ) {
-			var reader = static.itunesRssOb
+			reader = static.itunesRssOb
 		} else if( arguments.mediaRss ) {
-			var reader = static.mediaRssOb
+			reader = static.mediaRssOb
 		} else {
-			var reader = static.rssOb
+			// Auto-detect mode: start with iTunes reader (more common)
+			// We'll detect what's actually present and may switch readers if needed
+			reader = static.itunesRssOb
+			autoDetectExtensions = true
 		}
 
 		// Configure timeout if specified (convert seconds to Duration)
@@ -93,6 +101,84 @@ class{
 		}
 
 		items = itemStream.toList()
+
+		// Auto-detect extension fields if in auto-detect mode
+		var hasItunesFields = false
+		var hasMediaRssFields = false
+
+		if( autoDetectExtensions && items.size() > 0 ) {
+			var firstItem = items[ 1 ]
+
+			// Check for iTunes fields in the first item
+			if( !isNull( firstItem.getItunesDuration() ) && firstItem.getItunesDuration().isPresent() ) {
+				hasItunesFields = true
+			}
+			if( !isNull( firstItem.getItunesTitle() ) && firstItem.getItunesTitle().isPresent() ) {
+				hasItunesFields = true
+			}
+
+			// Check for Media RSS fields in the first item
+			// Note: ItunesRssReader won't have getMediaThumbnail(), so we need to check carefully
+			try {
+				if( !isNull( firstItem.getMediaThumbnail() ) && firstItem.getMediaThumbnail().isPresent() ) {
+					hasMediaRssFields = true
+				}
+			} catch( any e ) {
+				// Method doesn't exist on this reader, that's OK
+			}
+
+			// Also check channel for iTunes fields
+			var channel = firstItem.getChannel()
+			if( !isNull( channel ) ) {
+				if( !isNull( channel.getItunesImage() ) && len( channel.getItunesImage() ) > 0 ) {
+					hasItunesFields = true
+				}
+				if( !isNull( channel.getItunesCategories() ) && channel.getItunesCategories().size() > 0 ) {
+					hasItunesFields = true
+				}
+			}
+
+			// If no iTunes fields found but we're in auto-detect mode, try Media RSS reader
+			if( !hasItunesFields ) {
+				// Re-read with Media RSS reader to check for Media RSS fields
+				var mediaReader = static.mediaRssOb
+
+				// Configure timeout if specified
+				if( arguments.timeout > 0 ) {
+					var timeoutDuration = createObject( "java", "java.time.Duration" ).ofSeconds( arguments.timeout )
+					mediaReader
+						.setConnectionTimeout( timeoutDuration )
+						.setRequestTimeout( timeoutDuration )
+						.setReadTimeout( timeoutDuration )
+				}
+
+				// Configure userAgent if specified
+				if( len( arguments.userAgent ) ) {
+					mediaReader.setUserAgent( arguments.userAgent )
+				}
+
+				// Try reading with Media RSS reader
+				var mediaStream = mediaReader.read( urls ).filter( filter ).sorted()
+				if( maxItems > 0 ) {
+					mediaStream = mediaStream.limit( maxItems )
+				}
+				var mediaItems = mediaStream.toList()
+
+				// Check if Media RSS fields are present
+				if( mediaItems.size() > 0 ) {
+					var mediaFirstItem = mediaItems[ 1 ]
+					if( !isNull( mediaFirstItem.getMediaThumbnail() ) && mediaFirstItem.getMediaThumbnail().isPresent() ) {
+						hasMediaRssFields = true
+						// Use the Media RSS items instead
+						items = mediaItems
+					}
+				}
+			}
+
+			// Update the flags based on what we detected
+			arguments.itunes = hasItunesFields
+			arguments.mediaRss = hasMediaRssFields
+		}
 
 		// Extract channel metadata from first item (all items share the same channel)
 		var channelInfo = {}

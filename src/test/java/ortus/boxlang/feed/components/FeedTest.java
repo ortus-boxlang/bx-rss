@@ -626,4 +626,76 @@ public class FeedTest extends BaseIntegrationTest {
 		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isTrue();
 	}
 
+	@Test
+	@DisplayName( "Auto-detects iTunes podcast fields without explicit flag" )
+	public void testAutoDetectItunesPodcast() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    // Read iTunes podcast feed WITHOUT itunes=true flag
+		    bx:feed action="read" source="https://feeds.theincomparable.com/batmanuniversity" result="feedData" maxItems="3";
+
+		    channel = feedData.channel;
+		    items = feedData.items;
+		    firstItem = items[1];
+
+		    hasItunesChannel = structKeyExists(channel, "itunesImage");
+		    hasItunesCategories = structKeyExists(channel, "itunesCategories");
+		    hasItunesItem = structKeyExists(firstItem, "itunesDuration");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasItunesChannel" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasItunesCategories" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasItunesItem" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Auto-detects Media RSS fields without explicit flag" )
+	public void testAutoDetectMediaRss() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    // Read Media RSS feed WITHOUT mediaRss=true flag
+		    bx:feed action="read" source="https://vimeo.com/channels/staffpicks/videos/rss" result="feedData" maxItems="3";
+
+		    items = feedData.items;
+		    firstItem = items[1];
+
+		    hasMediaThumbnail = structKeyExists(firstItem, "mediaThumbnail");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasMediaThumbnail" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Regular RSS feed does not include extension fields" )
+	public void testRegularRssWithoutExtensions() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    // Read regular RSS feed - should NOT auto-detect iTunes/Media fields
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" result="feedData" maxItems="3";
+
+		    items = feedData.items;
+		    firstItem = items[1];
+
+		    hasItunesFields = structKeyExists(firstItem, "itunesDuration");
+		    hasMediaFields = structKeyExists(firstItem, "mediaThumbnail");
+		    hasRegularFields = structKeyExists(firstItem, "title") && structKeyExists(firstItem, "link");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasItunesFields" ) ) ).isFalse();
+		assertThat( variables.getAsBoolean( Key.of( "hasMediaFields" ) ) ).isFalse();
+		assertThat( variables.getAsBoolean( Key.of( "hasRegularFields" ) ) ).isTrue();
+	}
+
 }
