@@ -25,6 +25,8 @@ class{
 		rssOb = new RssReader();
 		itunesRssOb = new ItunesRssReader();
 		mediaRssOb = new MediaRssReader();
+		defaultUserAgent = "BoxLang-RSS-Module/1.0 (+https://boxlang.io)";
+		defaultTimeout = 25;
 	}
 
 	/**
@@ -35,6 +37,8 @@ class{
 	 * @param maxItems Maximum number of items to return; 0 means no limit.
 	 * @param itunes Boolean indicating whether to include iTunes-specific fields.
 	 * @param mediaRss Boolean indicating whether to include Media RSS fields.
+	 * @param userAgent Custom User-Agent string for HTTP requests.
+	 * @param timeout Timeout in seconds for HTTP requests.
 	 *
 	 * @return Struct with 'items' array and 'channel' metadata
 	 */
@@ -43,7 +47,9 @@ class{
 		filter=( i ) -> true,
 		numeric maxItems=0,
 		boolean itunes=false,
-		boolean mediaRss=false
+		boolean mediaRss=false,
+		string userAgent=static.defaultUserAgent,
+		numeric timeout=static.defaultTimeout
 	) {
 
 		if( isSimpleValue( urls ) ) urls = [ urls ]
@@ -55,6 +61,20 @@ class{
 			var reader = static.mediaRssOb
 		} else {
 			var reader = static.rssOb
+		}
+
+		// Configure timeout if specified (convert seconds to Duration)
+		if( arguments.timeout > 0 ) {
+			var timeoutDuration = createObject( "java", "java.time.Duration" ).ofSeconds( arguments.timeout )
+			reader
+				.setConnectionTimeout( timeoutDuration )
+				.setRequestTimeout( timeoutDuration )
+				.setReadTimeout( timeoutDuration )
+		}
+
+		// Configure userAgent if specified
+		if( len( arguments.userAgent ) ) {
+			reader.setUserAgent( arguments.userAgent )
 		}
 
 		// Now read the feeds

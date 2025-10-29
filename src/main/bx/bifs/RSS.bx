@@ -37,6 +37,8 @@ class {
 	 * @maxItems (optional) Maximum number of items to return (0 = unlimited)
 	 * @itunes (optional) Parse iTunes podcast extensions (default: false)
 	 * @mediaRss (optional) Parse Media RSS extensions for video/audio thumbnails (default: false)
+	 * @userAgent (optional) Custom User-Agent string for HTTP requests (default: "")
+	 * @timeout (optional) Timeout in seconds for HTTP requests (default: 25)
 	 *
 	 * @return Struct with 'items' array and 'channel' metadata
 	 */
@@ -45,7 +47,9 @@ class {
 		filter=( i ) -> true,
 		numeric maxItems=0,
 		boolean itunes=false,
-		boolean mediaRss=false
+		boolean mediaRss=false,
+		string userAgent,
+		numeric timeout
 	) {
 		return FeedUtil.readFeed( argumentCollection = arguments );
     }
