@@ -25,8 +25,9 @@
  * @attribute.action - string, required - Action to perform: "read" or "create". Default: "read"
  * @attribute.source - string, required for read - URL or file path to the feed to read
  * @attribute.result - string, optional - Variable name to store the feed data (read action)
- * @attribute.properties - struct, required for create - Feed metadata (title, description, link, etc.)
- * @attribute.data - array/query, required for create - Feed items/entries
+ * @attribute.name - struct/string - For read: output variable name (alias for result). For create: input struct containing full feed (alternative to properties+data)
+ * @attribute.properties - struct, required for create (unless name provided) - Feed metadata (title, description, link, etc.)
+ * @attribute.data - array/query, required for create (unless name provided) - Feed items/entries
  * @attribute.columnMap - struct, optional - Map query columns to feed fields (for query data)
  * @attribute.outputFile - string, optional - File path to write the generated feed XML
  * @attribute.overwrite - boolean, optional - Whether to overwrite existing file. Default: false
@@ -34,7 +35,6 @@
  * @attribute.timeout - numeric, optional - HTTP timeout in seconds. Default: 60
  * @attribute.userAgent - string, optional - Custom User-Agent for HTTP requests
  * @attribute.escapeChars - boolean, optional - Escape special characters in create action. Default: false
- * @attribute.name - string, deprecated - Backward compatibility alias for "result"
  * @attribute.query - any, deprecated - Backward compatibility alias for "data"
  */
 import bxModules.bxrss.models.FeedUtil;
@@ -75,9 +75,33 @@ class{
 		var action = attributes.action ?: "read"
 
 		// Handle backward compatibility
-		if( structKeyExists( attributes, "name" ) && !structKeyExists( attributes, "result" ) ) {
+		// For read action: name is alias for result (output variable)
+		if( action == "read" && structKeyExists( attributes, "name" ) && !structKeyExists( attributes, "result" ) ) {
 			attributes.result = attributes.name
 		}
+		
+		// For create action: name can be input structure (alternative to properties+data)
+		if( action == "create" && structKeyExists( attributes, "name" ) && isStruct( attributes.name ) ) {
+			// Extract properties from name structure (all keys except 'item')
+			if( !structKeyExists( attributes, "properties" ) ) {
+				attributes.properties = {}
+				for( var key in attributes.name ) {
+					if( key != "item" && key != "items" ) {
+						attributes.properties[ key ] = attributes.name[ key ]
+					}
+				}
+			}
+			// Extract items from name.item or name.items
+			if( !structKeyExists( attributes, "data" ) ) {
+				if( structKeyExists( attributes.name, "item" ) ) {
+					attributes.data = attributes.name.item
+				} else if( structKeyExists( attributes.name, "items" ) ) {
+					attributes.data = attributes.name.items
+				}
+			}
+		}
+		
+		// Handle query as alias for data
 		if( structKeyExists( attributes, "query" ) && !structKeyExists( attributes, "data" ) ) {
 			attributes.data = attributes.query
 		}

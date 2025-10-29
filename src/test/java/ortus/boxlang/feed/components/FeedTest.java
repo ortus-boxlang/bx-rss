@@ -347,4 +347,80 @@ public class FeedTest extends BaseIntegrationTest {
 		assertThat( variables.getAsBoolean( Key.of( "hasNewsCategory" ) ) ).isTrue();
 	}
 
+	@Test
+	@DisplayName( "Can create feed using name structure input" )
+	public void testCreateWithNameStructure() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    // First, read a feed to get the structure
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" result="originalFeed" maxItems="2";
+		    
+		    // Modify the structure
+		    originalFeed.title = "Modified Feed Title";
+		    originalFeed.description = "Modified feed description";
+		    originalFeed.link = "https://example.com/modified";
+		    
+		    // Create a new feed using the modified structure with name attribute
+		    bx:feed action="create" name="#originalFeed#" xmlVar="roundTripXml";
+		    
+		    // Verify the XML contains modified values
+		    hasModifiedTitle = findNoCase("Modified Feed Title", roundTripXml) > 0;
+		    hasModifiedLink = findNoCase("https://example.com/modified", roundTripXml) > 0;
+		    hasItems = findNoCase("<item>", roundTripXml) > 0 || findNoCase("<entry>", roundTripXml) > 0;
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasModifiedTitle" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasModifiedLink" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Can create feed with custom structure using name attribute" )
+	public void testCreateWithCustomNameStructure() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    // Create a complete feed structure manually
+		    feedStructure = {
+		        title: "Custom Feed via Name",
+		        description: "Testing name attribute for create action",
+		        link: "https://example.com/custom",
+		        items: [
+		            {
+		                title: "First Custom Item",
+		                link: "https://example.com/item1",
+		                description: "Description of first item"
+		            },
+		            {
+		                title: "Second Custom Item",
+		                link: "https://example.com/item2",
+		                description: "Description of second item",
+		                author: "Test Author"
+		            }
+		        ]
+		    };
+		    
+		    // Create feed using name structure
+		    bx:feed action="create" name="#feedStructure#" xmlVar="customXml";
+		    
+		    // Verify the XML contains custom values
+		    hasCustomTitle = findNoCase("Custom Feed via Name", customXml) > 0;
+		    hasFirstItem = findNoCase("First Custom Item", customXml) > 0;
+		    hasSecondItem = findNoCase("Second Custom Item", customXml) > 0;
+		    hasAuthor = findNoCase("Test Author", customXml) > 0;
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasCustomTitle" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasFirstItem" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasSecondItem" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasAuthor" ) ) ).isTrue();
+	}
+
 }
