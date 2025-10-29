@@ -96,7 +96,8 @@ The `createModuleStructure` task (runs during build) creates `build/module/`:
   - Use `.toDate()` to convert to `java.util.Date` for Java libraries (like Rome)
   - Use `.toEpoch()` for seconds, `.toEpochMillis()` for milliseconds
   - Use `parseDateTime(string)` to parse strings → returns DateTime object
-  - Example: `parseDateTime("2024-01-15").toDate()` for Rome's `setPublishedDate()`
+  - **Check if value is DateTime**: Use `value instanceof "DateTime"` (NOT `isDate()` - that checks if it *can be* a date)
+  - Example: `if(!(date instanceof "DateTime")) date = parseDateTime(date); feed.setPublishedDate(date.toDate())`
 
 ## Testing Patterns
 
