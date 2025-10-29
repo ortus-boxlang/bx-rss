@@ -38,6 +38,7 @@
  * @attribute.query - any, deprecated - Backward compatibility alias for "data"
  */
 import bxModules.bxrss.models.FeedUtil;
+import java:ortus.boxlang.runtime.dynamic.ExpressionInterpreter;
 
 @BoxComponent( "Feed" )
 @AllowsBody( false )
@@ -150,7 +151,7 @@ class{
 
 		// Store result in variables scope if result attribute specified
 		if( structKeyExists( attributes, "result" ) ) {
-			context.getScopeNearby( "variables" ).put( attributes.result, feedData )
+			ExpressionInterpreter.setVariable( context, attributes.result, feedData );
 		}
 	}
 
@@ -189,7 +190,7 @@ class{
 
 		// Store XML in variable if xmlVar specified
 		if( structKeyExists( attributes, "xmlVar" ) ) {
-			context.getScopeNearby( "variables" ).put( attributes.xmlVar, feedResult.xml )
+			ExpressionInterpreter.setVariable( context, attributes.xmlVar, feedResult.xml );
 		}
 
 		// Write to file if outputFile specified
@@ -215,7 +216,7 @@ class{
 				feedType: feedType,
 				itemCount: isArray( attributes.data ) ? arrayLen( attributes.data ) : attributes.data.recordCount
 			}
-			context.getScopeNearby( "variables" ).put( attributes.result, resultData )
+			ExpressionInterpreter.setVariable( context, attributes.result, resultData );
 		}
 	}
 
