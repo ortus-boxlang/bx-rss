@@ -1,0 +1,248 @@
+/**
+ * [BoxLang]
+ *
+ * Copyright [2023] [Ortus Solutions, Corp]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import java:com.apptasticsoftware.rssreader.RssReader@bxrss;
+import java:com.apptasticsoftware.rssreader.module.itunes.ItunesRssReader@bxrss;
+import java:com.apptasticsoftware.rssreader.module.mediarss.MediaRssReader@bxrss;
+
+class{
+
+	static {
+		rssOb = new RssReader();
+		itunesRssOb = new ItunesRssReader();
+		mediaRssOb = new MediaRssReader();
+	}
+
+	/**
+	 * Reads RSS feeds from the given URLs with optional filtering, item limit, and iTunes support.
+	 *
+	 * @param urls A single URL or an array of feed URLs to read.
+	 * @param filter A function to filter items; defaults to a function that returns true for all items.
+	 * @param maxItems Maximum number of items to return; 0 means no limit.
+	 * @param itunes Boolean indicating whether to include iTunes-specific fields.
+	 * @param mediaRss Boolean indicating whether to include Media RSS fields.
+	 *
+	 * @return Struct with 'items' array and 'channel' metadata
+	 */
+	static function readFeed(
+		required urls,
+		filter=( i ) -> true,
+		numeric maxItems=0,
+		boolean itunes=false,
+		boolean mediaRss=false
+	) {
+
+		if( isSimpleValue( urls ) ) urls = [ urls ]
+
+		// Select the appropriate reader based on parameters
+		if( arguments.itunes ) {
+			var reader = static.itunesRssOb
+		} else if( arguments.mediaRss ) {
+			var reader = static.mediaRssOb
+		} else {
+			var reader = static.rssOb
+		}
+
+		// Now read the feeds
+		var itemStream = reader
+			.read( urls )
+			.filter( filter )
+			.sorted()
+
+		// Apply maxItems limit if specified
+		if( maxItems > 0 ) {
+			itemStream = itemStream.limit( maxItems )
+		}
+
+		items = itemStream.toList()
+
+		// Extract channel metadata from first item (all items share the same channel)
+		var channelInfo = {}
+		if( items.size() > 0 ) {
+			var channel = items[ 1 ].getChannel()
+			if( !isNull( channel ) ) {
+				channelInfo = {
+					title: isNull( channel.getTitle() ) ? '' : channel.getTitle(),
+					description: isNull( channel.getDescription() ) ? '' : channel.getDescription(),
+					link: isNull( channel.getLink() ) ? '' : channel.getLink(),
+					language: channel.getLanguage().orElse( '' ),
+					copyright: channel.getCopyright().orElse( '' ),
+					lastBuildDate: channel.getLastBuildDate().orElse( '' ),
+					generator: channel.getGenerator().orElse( '' ),
+					image: ''
+				}
+
+				// Get channel image if available
+				channel.getImage().ifPresent( img => {
+					var imgUrl = img.getUrl()
+					channelInfo.image = isNull( imgUrl ) || !len( imgUrl ) ? '' : imgUrl
+				} )
+
+				// Add iTunes podcast channel fields if requested
+				if( itunes ) {
+					channelInfo.itunesImage = isNull( channel.getItunesImage() ) ? '' : channel.getItunesImage()
+					channelInfo.itunesCategories = channel.getItunesCategories()
+					channelInfo.itunesExplicit = isNull( channel.getItunesExplicit() ) ? false : channel.getItunesExplicit()
+					channelInfo.itunesAuthor = channel.getItunesAuthor().orElse( '' )
+					channelInfo.itunesTitle = channel.getItunesTitle().orElse( '' )
+					channelInfo.itunesSubtitle = channel.getItunesSubtitle().orElse( '' )
+					channelInfo.itunesSummary = isNull( channel.getItunesSummary() ) ? '' : channel.getItunesSummary()
+					channelInfo.itunesType = channel.getItunesType().orElse( '' )
+					channelInfo.itunesNewFeedUrl = channel.getItunesNewFeedUrl().orElse( '' )
+					channelInfo.itunesBlock = channel.isItunesBlock()
+					channelInfo.itunesComplete = channel.isItunesComplete()
+
+					// iTunes owner
+					channel.getItunesOwner().ifPresent( owner => {
+						channelInfo.itunesOwner = {
+							name: owner.getName().orElse( '' ),
+							email: isNull( owner.getEmail() ) ? '' : owner.getEmail()
+						}
+					} )
+
+					// Default empty owner if not present
+					if( !structKeyExists( channelInfo, 'itunesOwner' ) ) {
+						channelInfo.itunesOwner = { name: '', email: '' }
+					}
+				}
+			}
+		}
+
+		var mappedItems = items.map( i => {
+			var result = {
+				title: '',
+				content: '',
+				description: '',
+				pubdate: '',
+				updated: '',
+				link: '',
+				author: '',
+				category: '',
+				categories: [],
+				guid: '',
+				isPermaLink: '',
+				comments: '',
+				enclosures: [],
+				channelTitle: ''
+			}
+
+			// Add iTunes-specific fields if requested
+			if( itunes ) {
+				result.itunesDuration = ''
+				result.itunesExplicit = false
+				result.itunesTitle = ''
+				result.itunesSubtitle = ''
+				result.itunesSummary = ''
+				result.itunesKeywords = ''
+				result.itunesEpisode = 0
+				result.itunesSeason = 0
+				result.itunesEpisodeType = ''
+				result.itunesImage = ''
+				result.itunesBlock = false
+			}
+
+			// Add Media RSS fields if requested
+			if( mediaRss ) {
+				result.mediaThumbnail = {
+					url: '',
+					width: 0,
+					height: 0,
+					time: ''
+				}
+			}
+
+			i.getTitle().ifPresent( t => result.title = t )
+			i.getLink().ifPresent( l => result.link = l )
+			i.getContent().ifPresent( c => result.content = c )
+			i.getDescription().ifPresent( d => result.description = d )
+			i.getAuthor().ifPresent( a => result.author = a )
+			i.getCategory().ifPresent( c => result.category = c )
+			i.getGuid().ifPresent( g => result.guid = g )
+			i.getComments().ifPresent( c => result.comments = c )
+			i.getIsPermaLink().ifPresent( p => result.isPermaLink = p )
+
+			// Get all categories (returns a List)
+			var cats = i.getCategories()
+			if( !isNull( cats ) && cats.size() > 0 ) {
+				result.categories = cats
+			}
+
+			// Get all enclosures (returns a List)
+			var encs = i.getEnclosures()
+			if( !isNull( encs ) && encs.size() > 0 ) {
+				result.enclosures = encs.stream().map( e => {
+					return {
+						url: isNull( e.getUrl() ) ? '' : e.getUrl(),
+						type: isNull( e.getType() ) ? '' : e.getType(),
+						length: e.getLength().orElse( 0 )
+					}
+				} ).toList()
+			}
+
+			// getChannel() returns a Channel object, getTitle() on Channel returns String directly
+			var channel = i.getChannel()
+			if( !isNull( channel ) ) {
+				var channelTitle = channel.getTitle()
+				if( !isNull( channelTitle ) && len( channelTitle ) ) {
+					result.channelTitle = channelTitle
+				}
+			}
+
+			i.getPubDateZonedDateTime().ifPresent( d => {
+				result.pubdate = parseDateTime( d )
+			} )
+
+			i.getUpdatedZonedDateTime().ifPresent( d => {
+				result.updated = parseDateTime( d )
+			} )
+
+			// Extract iTunes podcast fields if enabled
+			if( itunes ) {
+				i.getItunesDuration().ifPresent( d => result.itunesDuration = d )
+				result.itunesExplicit = i.isItunesExplicit()
+				i.getItunesTitle().ifPresent( t => result.itunesTitle = t )
+				i.getItunesSubtitle().ifPresent( s => result.itunesSubtitle = s )
+				i.getItunesSummary().ifPresent( s => result.itunesSummary = s )
+				i.getItunesKeywords().ifPresent( k => result.itunesKeywords = k )
+				i.getItunesEpisode().ifPresent( e => result.itunesEpisode = e )
+				i.getItunesSeason().ifPresent( s => result.itunesSeason = s )
+				i.getItunesEpisodeType().ifPresent( t => result.itunesEpisodeType = t )
+				i.getItunesImage().ifPresent( img => result.itunesImage = img )
+				result.itunesBlock = i.isItunesBlock()
+			}
+
+			// Extract Media RSS fields if enabled
+			if( mediaRss ) {
+				i.getMediaThumbnail().ifPresent( thumb => {
+					result.mediaThumbnail = {
+						url: thumb.getUrl(),
+						width: thumb.getWidth().orElse( 0 ),
+						height: thumb.getHeight().orElse( 0 ),
+						time: thumb.getTime().orElse( '' )
+					}
+				} )
+			}
+
+			return result
+		} )
+
+		return {
+			"items": mappedItems,
+			"channel": channelInfo
+		}
+    }
+}

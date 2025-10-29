@@ -137,4 +137,34 @@ public class RSSTest extends BaseIntegrationTest {
 		assertThat( resultStruct.containsKey( "itunesBlock" ) ).isTrue();
 	}
 
+	@DisplayName( "Test rss bif with Media RSS feed" )
+	@Test
+	public void testMediaRssFeed() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			feedData = rss( urls='https://vimeo.com/channels/staffpicks/videos/rss', mediaRss=true );
+			println( feedData )
+			feedItems = feedData.items
+			count = feedItems.size()
+			result = feedItems[ 1 ]
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 1 );
+
+		// Verify Media RSS item fields
+		IStruct resultStruct = variables.getAsStruct( result );
+		assertThat( resultStruct.containsKey( "mediaThumbnail" ) ).isTrue();
+
+		// Verify thumbnail structure
+		IStruct thumbnailStruct = resultStruct.getAsStruct( Key.of( "mediaThumbnail" ) );
+		assertThat( thumbnailStruct.containsKey( "url" ) ).isTrue();
+		assertThat( thumbnailStruct.containsKey( "width" ) ).isTrue();
+		assertThat( thumbnailStruct.containsKey( "height" ) ).isTrue();
+		assertThat( thumbnailStruct.containsKey( "time" ) ).isTrue();
+	}
+
 }
