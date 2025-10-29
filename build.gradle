@@ -167,7 +167,6 @@ spotless {
  * - Copies the src/main/bx/** to build/module/ folder.
  */
 task createModuleStructure(type: Copy) {
-    dependsOn jar, shadowJar
     from( 'build/libs' ) {
 		include "${project.name}-${version}.jar"
         into 'libs'
