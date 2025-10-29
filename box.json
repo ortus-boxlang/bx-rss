@@ -1,0 +1,47 @@
+{
+	"name": "BoxLang RSS Module",
+	"version": "@build.version@+@build.number@",
+	"location": "https://downloads.ortussolutions.com/ortussolutions/boxlang-modules/bx-rss/@build.version@/bx-rss-@build.version@.zip",
+	"author": "Ortus Solutions",
+	"homepage": "https://github.com/ortus-boxlang/bx-rss",
+	"documentation": "https://github.com/ortus-boxlang/bx-rss",
+	"repository": {
+		"type": "git",
+		"URL": "https://github.com/ortus-boxlang/bx-rss"
+	},
+	"bugs": "https://ortussolutions.atlassian.net/browse/BLMODULES",
+	"slug": "bx-rss",
+	"shortDescription": "Module template for BoxLang modules",
+	"type": "boxlang-modules",
+	"keywords": ["boxlang"],
+	"boxlang": {
+		"minimumVersion": "1.0.0",
+		"moduleName": "bxrss"
+	},
+	"private": false,
+	"license": [
+		{
+			"type": "Apache-2.0",
+			"URL": "https://www.apache.org/licenses/LICENSE-2.0"
+		}
+	],
+	"devDependencies": {
+		"commandbox-boxlang": "*",
+		"commandbox-cfformat": "*",
+		"commandbox-docbox": "*",
+		"testbox": "*"
+	},
+	"ignore": [
+		"**/.*",
+		"settings.gradle",
+		"gradlew.bat",
+		"gradlew",
+		"build.gradle",
+		"/src/**",
+		"gradle/**"
+	],
+	"scripts": {
+		"setupTemplate": "task run taskFile=src/build/SetupTemplate.cfc",
+		"onRelease": "publish"
+	}
+}

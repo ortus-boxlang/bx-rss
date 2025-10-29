@@ -1,0 +1,111 @@
+/**
+ * [BoxLang]
+ *
+ * Copyright [2023] [Ortus Solutions, Corp]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import java:com.apptasticsoftware.rssreader.RssReader@bxrss;
+
+@BoxBIF
+class {
+
+	function init() {
+		variables.rssOb = new RssReader();
+	}
+
+	/**
+	 * Reads RSS feed from given URL(s)
+	 *
+	 * The URL can be an http(s) URL or a local file path (file:/path/to/file) URI
+	 *
+	 * @urls URL or Array of URLs to read RSS feed from
+	 *
+	 * @return Array of struct feed items with title, content, description, pubdate, updated, link, author, category, categories, guid, isPermaLink, comments, enclosures, channelTitle
+	 */
+    function invoke( required urls ) {
+
+		if( isSimpleValue( urls ) ) urls = [ urls ]
+
+		// Now read the feeds
+		items = variables.rssOb.read( urls ).sorted().toList()
+
+		return items.map( i => {
+			var result = {
+				title: '',
+				content: '',
+				description: '',
+				pubdate: '',
+				updated: '',
+				link: '',
+				author: '',
+				category: '',
+				categories: [],
+				guid: '',
+				isPermaLink: '',
+				comments: '',
+				enclosures: [],
+				channelTitle: ''
+			}
+
+			i.getTitle().ifPresent( t => result.title = t )
+			i.getLink().ifPresent( l => result.link = l )
+			i.getContent().ifPresent( c => result.content = c )
+			i.getDescription().ifPresent( d => result.description = d )
+			i.getAuthor().ifPresent( a => result.author = a )
+			i.getCategory().ifPresent( c => result.category = c )
+			i.getGuid().ifPresent( g => result.guid = g )
+			i.getComments().ifPresent( c => result.comments = c )
+			i.getIsPermaLink().ifPresent( p => result.isPermaLink = p )
+
+			// Get all categories (returns a List)
+			var cats = i.getCategories()
+			if( !isNull( cats ) && cats.size() > 0 ) {
+				result.categories = cats
+			}
+
+			// Get all enclosures (returns a List)
+			var encs = i.getEnclosures()
+			if( !isNull( encs ) && encs.size() > 0 ) {
+				result.enclosures = encs.stream().map( e => {
+					return {
+						url: isNull( e.getUrl() ) ? '' : e.getUrl(),
+						type: isNull( e.getType() ) ? '' : e.getType(),
+						length: e.getLength().orElse( 0 )
+					}
+				} ).toList()
+			}
+
+			// getChannel() returns a Channel object, getTitle() on Channel returns String directly
+			var channel = i.getChannel()
+			if( !isNull( channel ) ) {
+				var channelTitle = channel.getTitle()
+				if( !isNull( channelTitle ) && len( channelTitle ) ) {
+					result.channelTitle = channelTitle
+				}
+			}
+
+			i.getPubDateZonedDateTime().ifPresent( d => {
+				result.pubdate = parseDateTime( d )
+			} )
+
+			i.getUpdatedZonedDateTime().ifPresent( d => {
+				result.updated = parseDateTime( d )
+			} )
+
+			return result
+		} )
+
+    }
+
+}
