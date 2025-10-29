@@ -119,6 +119,9 @@ class{
 						channelInfo.itunesOwner = { name: '', email: '' }
 					}
 				}
+
+				// Detect feed specifications and extensions
+				channelInfo.specs = detectFeedSpecs( items[ 1 ], itunes, mediaRss )
 			}
 		}
 
@@ -245,4 +248,64 @@ class{
 			"channel": channelInfo
 		}
     }
+
+	/**
+	 * Detect feed specifications, type, version, and extensions
+	 *
+	 * @item First item from the feed to inspect
+	 * @itunes Whether iTunes extensions are enabled
+	 * @mediaRss Whether Media RSS extensions are enabled
+	 *
+	 * @return Struct with feed specifications: type, version, extensions, generator, ttl, hasDateFields
+	 */
+	static function detectFeedSpecs(
+		required item,
+		boolean itunes = false,
+		boolean mediaRss = false
+	) {
+		var specs = {
+			type: "",
+			version: "",
+			extensions: [],
+			generator: "",
+			ttl: 0,
+			hasDateFields: false
+		}
+
+		// Detect feed type by inspecting item class
+		var itemClassName = item.getClass().getName()
+		if( itemClassName.contains( "Rss" ) ) {
+			specs.type = "RSS"
+			// RSS 2.0 is most common, library doesn't expose version directly
+			specs.version = "2.0"
+		} else if( itemClassName.contains( "Atom" ) ) {
+			specs.type = "Atom"
+			specs.version = "1.0"
+		} else if( itemClassName.contains( "Rdf" ) ) {
+			specs.type = "RSS"
+			specs.version = "1.0"
+		}
+
+		// Detect extensions based on available fields
+		if( itunes ) {
+			specs.extensions.append( "iTunes Podcast" )
+		}
+		if( mediaRss ) {
+			specs.extensions.append( "Media RSS" )
+		}
+
+		// Check for Dublin Core namespace (common extension)
+		if( !isNull( item.getCreator() ) && len( item.getCreator().orElse( "" ) ) ) {
+			if( !specs.extensions.find( "Dublin Core" ) ) {
+				specs.extensions.append( "Dublin Core" )
+			}
+		}
+
+		// Detect date field presence
+		if( !isNull( item.getPubDate() ) || !isNull( item.getPublished() ) ) {
+			specs.hasDateFields = true
+		}
+
+		return specs
+	}
 }
