@@ -375,11 +375,13 @@ class{
 			feed.setCopyright( arguments.properties.copyright )
 		}
 		if( structKeyExists( arguments.properties, "publishedDate" ) ) {
-			// Convert to Java Date if needed
-			var pubDate = isDate( arguments.properties.publishedDate ) ?
-				arguments.properties.publishedDate :
-				parseDateTime( arguments.properties.publishedDate )
-			feed.setPublishedDate( pubDate )
+			// Convert to Java Date - Rome expects java.util.Date
+			// BoxLang DateTime objects have toDate() method
+			var pubDate = arguments.properties.publishedDate
+			if( !(pubDate instanceof "DateTime") ) {
+				pubDate = parseDateTime( pubDate )
+			}
+			feed.setPublishedDate( pubDate.toDate() )
 		}
 
 		// Create Java ArrayList for entries
@@ -410,10 +412,12 @@ class{
 				entry.setAuthor( item[ authorField ] )
 			}
 			if( structKeyExists( item, pubDateField ) ) {
-				var itemPubDate = isDate( item[ pubDateField ] ) ?
-					item[ pubDateField ] :
-					parseDateTime( item[ pubDateField ] )
-				entry.setPublishedDate( itemPubDate )
+				// Rome expects java.util.Date, BoxLang DateTime has toDate() method
+				var itemPubDate = item[ pubDateField ]
+				if( !(itemPubDate instanceof "DateTime") ) {
+					itemPubDate = parseDateTime( itemPubDate )
+				}
+				entry.setPublishedDate( itemPubDate.toDate() )
 			}
 
 			// Set description/content

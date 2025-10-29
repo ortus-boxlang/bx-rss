@@ -355,15 +355,15 @@ public class FeedTest extends BaseIntegrationTest {
 		    """
 		    // First, read a feed to get the structure
 		    bx:feed action="read" source="https://www.engadget.com/rss.xml" result="originalFeed" maxItems="2";
-		    
+
 		    // Modify the structure
 		    originalFeed.title = "Modified Feed Title";
 		    originalFeed.description = "Modified feed description";
 		    originalFeed.link = "https://example.com/modified";
-		    
+
 		    // Create a new feed using the modified structure with name attribute
 		    bx:feed action="create" name="#originalFeed#" xmlVar="roundTripXml";
-		    
+
 		    // Verify the XML contains modified values
 		    hasModifiedTitle = findNoCase("Modified Feed Title", roundTripXml) > 0;
 		    hasModifiedLink = findNoCase("https://example.com/modified", roundTripXml) > 0;
@@ -403,10 +403,10 @@ public class FeedTest extends BaseIntegrationTest {
 		            }
 		        ]
 		    };
-		    
+
 		    // Create feed using name structure
 		    bx:feed action="create" name="#feedStructure#" xmlVar="customXml";
-		    
+
 		    // Verify the XML contains custom values
 		    hasCustomTitle = findNoCase("Custom Feed via Name", customXml) > 0;
 		    hasFirstItem = findNoCase("First Custom Item", customXml) > 0;
@@ -421,6 +421,49 @@ public class FeedTest extends BaseIntegrationTest {
 		assertThat( variables.getAsBoolean( Key.of( "hasFirstItem" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "hasSecondItem" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "hasAuthor" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Can create feed with publishedDate fields" )
+	public void testCreateWithPublishedDates() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    properties = {
+		        title: "Date Test Feed",
+		        description: "Testing date field handling",
+		        link: "https://example.com",
+		        publishedDate: parseDateTime("2024-01-15 10:30:00")
+		    };
+
+		    data = [
+		        {
+		            title: "Post with Date",
+		            link: "https://example.com/dated-post",
+		            description: "Post with published date",
+		            publishedDate: parseDateTime("2024-01-20 14:15:00")
+		        },
+		        {
+		            title: "Post with String Date",
+		            link: "https://example.com/string-date",
+		            description: "Post with string date that gets parsed",
+		            publishedDate: "2024-02-01 09:00:00"
+		        }
+		    ];
+
+		    bx:feed action="create" properties="#properties#" data="#data#" xmlVar="dateXml";
+
+		    hasXml = len(dateXml) > 0;
+		    hasTitle = findNoCase("Date Test Feed", dateXml) > 0;
+		    hasPost = findNoCase("Post with Date", dateXml) > 0;
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasXml" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasTitle" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasPost" ) ) ).isTrue();
 	}
 
 }

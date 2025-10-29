@@ -91,6 +91,12 @@ The `createModuleStructure` task (runs during build) creates `build/module/`:
 - **Optional handling**: Use `.orElse()`, `.ifPresent()` on Java Optionals
 - **Null checking**: Use `isNull()` BoxLang function, not `== null`
 - **Closures/Lambdas**: BoxLang syntax `( i ) -> true` works in Java Stream API
+- **Date/Time Objects**: All date/time values in BoxLang are `ortus.boxlang.runtime.types.DateTime` objects
+  - Wraps `java.time.ZonedDateTime` internally
+  - Use `.toDate()` to convert to `java.util.Date` for Java libraries (like Rome)
+  - Use `.toEpoch()` for seconds, `.toEpochMillis()` for milliseconds
+  - Use `parseDateTime(string)` to parse strings → returns DateTime object
+  - Example: `parseDateTime("2024-01-15").toDate()` for Rome's `setPublishedDate()`
 
 ## Testing Patterns
 

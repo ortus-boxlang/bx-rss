@@ -79,7 +79,7 @@ class{
 		if( action == "read" && structKeyExists( attributes, "name" ) && !structKeyExists( attributes, "result" ) ) {
 			attributes.result = attributes.name
 		}
-		
+
 		// For create action: name can be input structure (alternative to properties+data)
 		if( action == "create" && structKeyExists( attributes, "name" ) && isStruct( attributes.name ) ) {
 			// Extract properties from name structure (all keys except 'item')
@@ -100,7 +100,7 @@ class{
 				}
 			}
 		}
-		
+
 		// Handle query as alias for data
 		if( structKeyExists( attributes, "query" ) && !structKeyExists( attributes, "data" ) ) {
 			attributes.data = attributes.query
