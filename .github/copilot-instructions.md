@@ -91,6 +91,13 @@ The `createModuleStructure` task (runs during build) creates `build/module/`:
 - **Optional handling**: Use `.orElse()`, `.ifPresent()` on Java Optionals
 - **Null checking**: Use `isNull()` BoxLang function, not `== null`
 - **Closures/Lambdas**: BoxLang syntax `( i ) -> true` works in Java Stream API
+- **Setting Variables in Components**: Use `ExpressionInterpreter.setVariable( context, variableName, value )` instead of `context.getScopeNearby( "variables" ).put()`
+  - Import: `import java:ortus.boxlang.runtime.dynamic.ExpressionInterpreter;`
+  - Example: `ExpressionInterpreter.setVariable( context, "result", feedData );`
+- **Component Calls in Script**: Use `bx:componentName` syntax (NOT CFML `cfcomponent()` syntax)
+  - Example: `bx:http url=source method="GET" timeout=timeout result="httpResult";`
+  - With body: `bx:http url=source { /* body content */ }`
+  - Reference: https://boxlang.ortusbooks.com/boxlang-framework/components
 - **Date/Time Objects**: All date/time values in BoxLang are `ortus.boxlang.runtime.types.DateTime` objects
   - Wraps `java.time.ZonedDateTime` internally
   - Use `.toDate()` to convert to `java.util.Date` for Java libraries (like Rome)
@@ -145,6 +152,51 @@ var reader = arguments.itunes ? static.itunesRssOb : static.rssOb
 - Multiple URL support: Library handles merging via `reader.read(List<String>)`
 - Feed types: RSS 2.0, RSS 1.0 (RDF), Atom
 - Extensions: iTunes podcast fields (23 additional fields when enabled)
+
+## Feed Component Output Options
+
+The Feed component supports multiple output options in the **read action** that can be used in any combination:
+
+1. **`result`** - Full feed structure (both `items` array and `channel` metadata)
+   - Example: `result="feedData"` → `feedData.items`, `feedData.channel`
+
+2. **`name`** - Alias for `result` (backward compatibility)
+   - Example: `name="myFeed"` → same as `result="myFeed"`
+
+3. **`properties`** - Channel metadata only (without items)
+   - Example: `properties="feedMetadata"` → gets only `channel` struct
+   - Useful when you only need feed info, not the items
+
+4. **`query`** - Items array only (without channel metadata)
+   - Example: `query="feedItems"` → gets only `items` array
+   - Useful when you only need the entries, not the feed info
+
+5. **`xmlVar`** - Raw XML string from the source
+   - Example: `xmlVar="rawXml"` → gets original XML as string
+   - Fetches XML directly from source (HTTP or file)
+
+6. **`outputFile`** - Write raw XML to file
+   - Example: `outputFile="/path/to/feed.xml"` → saves XML to disk
+   - Use `overwrite=true` to replace existing files
+
+**Multiple Output Example**:
+```boxlang
+bx:feed
+    action="read"
+    source="https://example.com/feed.xml"
+    result="fullData"          // Gets full structure
+    properties="metadata"       // Gets channel only
+    query="items"              // Gets items only
+    xmlVar="xml"               // Gets raw XML
+    outputFile="/tmp/feed.xml" // Saves XML to file
+    overwrite="true";
+```
+
+**Implementation Notes**:
+- All outputs use `ExpressionInterpreter.setVariable()` to set variables in the calling context
+- `xmlVar` and `outputFile` fetch raw XML using `cfhttp()` for URLs or `fileRead()` for local files
+- The `properties` and `query` attributes must be simple values (variable names) when used as output targets
+- Any combination of these outputs can be used simultaneously
 
 ## Code Style & Formatting
 

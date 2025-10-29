@@ -466,4 +466,164 @@ public class FeedTest extends BaseIntegrationTest {
 		assertThat( variables.getAsBoolean( Key.of( "hasPost" ) ) ).isTrue();
 	}
 
+	@Test
+	@DisplayName( "Can output to properties variable (metadata only)" )
+	public void testReadWithPropertiesOutput() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" properties="metadata" maxItems="3";
+		    
+		    hasTitle = structKeyExists(metadata, "title");
+		    hasDescription = structKeyExists(metadata, "description");
+		    hasLink = structKeyExists(metadata, "link");
+		    hasItems = structKeyExists(metadata, "items");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasTitle" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasDescription" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasLink" ) ) ).isTrue();
+		// metadata should NOT have items - only channel info
+		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isFalse();
+	}
+
+	@Test
+	@DisplayName( "Can output to query variable (items only)" )
+	public void testReadWithQueryOutput() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" query="items" maxItems="5";
+		    
+		    isItemsArray = isArray(items);
+		    itemCount = arrayLen(items);
+		    hasFirstItem = itemCount > 0;
+		    firstItemHasTitle = hasFirstItem && structKeyExists(items[1], "title");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "isItemsArray" ) ) ).isTrue();
+		assertThat( variables.getAsInteger( Key.of( "itemCount" ) ) ).isAtLeast( 1 );
+		assertThat( variables.getAsBoolean( Key.of( "hasFirstItem" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "firstItemHasTitle" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Can output to xmlVar (raw XML)" )
+	public void testReadWithXmlVarOutput() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" xmlVar="rawXml" maxItems="3";
+		    
+		    hasXml = len(rawXml) > 0;
+		    hasRssTag = findNoCase("<rss", rawXml) > 0 || findNoCase("<feed", rawXml) > 0;
+		    hasChannelOrFeed = findNoCase("<channel", rawXml) > 0 || findNoCase("<feed", rawXml) > 0;
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasXml" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasRssTag" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasChannelOrFeed" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Can output to outputFile (save XML to disk)" )
+	public void testReadWithOutputFile() throws IOException {
+		File tempFile = File.createTempFile( "feed-test-", ".xml" );
+		tempFile.deleteOnExit();
+		String filePath = tempFile.getAbsolutePath();
+
+		// @formatter:off
+		runtime.executeSource(
+		    String.format(
+		        """
+		        bx:feed action="read" source="https://www.engadget.com/rss.xml" outputFile="%s" overwrite="true" maxItems="3";
+		        fileWasCreated = fileExists("%s");
+		        """,
+		        filePath.replace( "\\", "\\\\" ),
+		        filePath.replace( "\\", "\\\\" )
+		    ),
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "fileWasCreated" ) ) ).isTrue();
+		
+		// Verify file has content
+		String content = Files.readString( tempFile.toPath() );
+		assertThat( content ).isNotEmpty();
+		assertThat( content ).containsMatch( "(?i)<rss|<feed" );
+	}
+
+	@Test
+	@DisplayName( "Can use multiple output options simultaneously" )
+	public void testReadWithMultipleOutputs() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    bx:feed 
+		        action="read" 
+		        source="https://www.engadget.com/rss.xml" 
+		        result="fullData"
+		        properties="metadata"
+		        query="items"
+		        xmlVar="rawXml"
+		        maxItems="3";
+		    
+		    hasFullData = structKeyExists(variables, "fullData");
+		    hasMetadata = structKeyExists(variables, "metadata");
+		    hasItems = structKeyExists(variables, "items");
+		    hasRawXml = structKeyExists(variables, "rawXml");
+		    
+		    fullDataHasChannel = hasFullData && structKeyExists(fullData, "channel");
+		    fullDataHasItems = hasFullData && structKeyExists(fullData, "items");
+		    metadataHasTitle = hasMetadata && structKeyExists(metadata, "title");
+		    itemsIsArray = hasItems && isArray(items);
+		    xmlHasContent = hasRawXml && len(rawXml) > 0;
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasFullData" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasMetadata" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasRawXml" ) ) ).isTrue();
+		
+		assertThat( variables.getAsBoolean( Key.of( "fullDataHasChannel" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "fullDataHasItems" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "metadataHasTitle" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "itemsIsArray" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "xmlHasContent" ) ) ).isTrue();
+	}
+
+	@Test
+	@DisplayName( "Can use name as alias for result output" )
+	public void testReadWithNameAsAlias() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+		    bx:feed action="read" source="https://www.engadget.com/rss.xml" name="feedData" maxItems="3";
+		    
+		    hasFeedData = structKeyExists(variables, "feedData");
+		    hasChannel = hasFeedData && structKeyExists(feedData, "channel");
+		    hasItems = hasFeedData && structKeyExists(feedData, "items");
+		    """,
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsBoolean( Key.of( "hasFeedData" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasChannel" ) ) ).isTrue();
+		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isTrue();
+	}
+
 }

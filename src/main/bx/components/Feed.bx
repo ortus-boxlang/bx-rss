@@ -12,6 +12,18 @@
  *     result="feedData" />
  * </pre>
  * <p>
+ * Read Action - Multiple Outputs (can use any combination):
+ * <pre>
+ * <bx:Feed
+ *     action="read"
+ *     source="https://example.com/feed.xml"
+ *     result="feedData"
+ *     properties="feedMetadata"
+ *     query="feedItems"
+ *     xmlVar="rawXml"
+ *     outputFile="/path/to/feed.xml" />
+ * </pre>
+ * <p>
  * Basic Usage - Create Action:
  * <pre>
  * <bx:Feed
@@ -24,18 +36,18 @@
  * <p>
  * @attribute.action - string, required - Action to perform: "read" or "create". Default: "read"
  * @attribute.source - string, required for read - URL or file path to the feed to read
- * @attribute.result - string, optional - Variable name to store the feed data (read action)
+ * @attribute.result - string, optional - Variable name to store the full feed structure (read action)
  * @attribute.name - struct/string - For read: output variable name (alias for result). For create: input struct containing full feed (alternative to properties+data)
- * @attribute.properties - struct, required for create (unless name provided) - Feed metadata (title, description, link, etc.)
+ * @attribute.properties - struct/string - For create: feed metadata (title, description, link, etc.). For read: output variable for channel metadata only
  * @attribute.data - array/query, required for create (unless name provided) - Feed items/entries
+ * @attribute.query - any - For create: deprecated alias for "data". For read: output variable for items as query
  * @attribute.columnMap - struct, optional - Map query columns to feed fields (for query data)
- * @attribute.outputFile - string, optional - File path to write the generated feed XML
+ * @attribute.outputFile - string, optional - File path to write the feed XML (both read and create actions)
  * @attribute.overwrite - boolean, optional - Whether to overwrite existing file. Default: false
- * @attribute.xmlVar - string, optional - Variable name to store the generated XML string
+ * @attribute.xmlVar - string, optional - Variable name to store the raw XML string (both read and create actions)
  * @attribute.timeout - numeric, optional - HTTP timeout in seconds. Default: 60
  * @attribute.userAgent - string, optional - Custom User-Agent for HTTP requests
  * @attribute.escapeChars - boolean, optional - Escape special characters in create action. Default: false
- * @attribute.query - any, deprecated - Backward compatibility alias for "data"
  */
 import bxModules.bxrss.models.FeedUtil;
 import java:ortus.boxlang.runtime.dynamic.ExpressionInterpreter;
@@ -149,9 +161,66 @@ class{
 			timeout = timeout
 		)
 
-		// Store result in variables scope if result attribute specified
+		// Output to various destinations as requested (can use any combination)
+
+		// 1. Output full structure to result or name variable
 		if( structKeyExists( attributes, "result" ) ) {
 			ExpressionInterpreter.setVariable( context, attributes.result, feedData );
+		}
+
+		// 2. Output metadata to properties variable
+		if( structKeyExists( attributes, "properties" ) && isSimpleValue( attributes.properties ) ) {
+			ExpressionInterpreter.setVariable( context, attributes.properties, feedData.channel );
+		}
+
+		// 3. Output items to query variable
+		if( structKeyExists( attributes, "query" ) && isSimpleValue( attributes.query ) ) {
+			ExpressionInterpreter.setVariable( context, attributes.query, feedData.items );
+		}
+
+		// 4. Output raw XML to xmlVar
+		if( structKeyExists( attributes, "xmlVar" ) ) {
+			var rawXml = getRawXml( attributes.source, userAgent, timeout );
+			ExpressionInterpreter.setVariable( context, attributes.xmlVar, rawXml );
+		}
+
+		// 5. Write raw XML to outputFile
+		if( structKeyExists( attributes, "outputFile" ) ) {
+			var filePath = attributes.outputFile;
+			var overwrite = attributes.overwrite ?: false;
+
+			// Check if file exists and overwrite is false
+			if( fileExists( filePath ) && !overwrite ) {
+				throw(
+					type="FileExists",
+					message="File '#filePath#' already exists. Set overwrite=true to replace it."
+				);
+			}
+
+			// Get raw XML and write to file
+			var rawXml = getRawXml( attributes.source, userAgent, timeout );
+			fileWrite( filePath, rawXml );
+		}
+	}
+
+	/**
+	 * Helper: Fetch raw XML from source
+	 */
+	private function getRawXml( required string source, string userAgent="", numeric timeout=60 ) {
+		// Check if source is URL or file path
+		if( findNoCase( "http://", source ) == 1 || findNoCase( "https://", source ) == 1 ) {
+			// HTTP request using BoxLang http component
+			bx:http
+				url = source
+				method = "GET"
+				timeout = timeout
+				userAgent = userAgent
+				result = "httpResult";
+
+			return httpResult.fileContent;
+		} else {
+			// Local file
+			return fileRead( source );
 		}
 	}
 
