@@ -17,8 +17,10 @@ public class RSSTest extends BaseIntegrationTest {
 		// @formatter:off
 		runtime.executeSource(
 		    """
-			feedItems = rss( 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml' );
-			println( feedItems )
+			feedData = rss( 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml' );
+			println( feedData )
+			feedItems = feedData.items
+			channel = feedData.channel
 			count = feedItems.size()
 			result = feedItems[ 1 ]
 			""",
@@ -27,6 +29,14 @@ public class RSSTest extends BaseIntegrationTest {
 		// @formatter:on
 
 		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isAtLeast( 5 );
+
+		// Verify channel metadata
+		IStruct channelStruct = variables.getAsStruct( Key.of( "channel" ) );
+		assertThat( channelStruct.containsKey( "title" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "description" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "link" ) ).isTrue();
+		assertThat( channelStruct.containsKey( "language" ) ).isTrue();
+
 		// Verify that the result struct has the expected keys
 		IStruct resultStruct = variables.getAsStruct( result );
 		assertThat( resultStruct.containsKey( "title" ) ).isTrue();
@@ -51,18 +61,35 @@ public class RSSTest extends BaseIntegrationTest {
 		// @formatter:off
 		runtime.executeSource(
 		    """
-			feedItems = rss(
+			feedData = rss(
 				'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml',
 				( item ) -> false
 			);
-			println( feedItems )
-			count = feedItems.size()
+			println( feedData )
+			count = feedData.items.size()
 			""",
 		    context
 		);
 		// @formatter:on
 
 		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isEqualTo( 0 );
+	}
+
+	@DisplayName( "Test rss bif feed with maxItems limit" )
+	@Test
+	public void testRSSFeedWithMaxItems() {
+		// @formatter:off
+		runtime.executeSource(
+		    """
+			feedData = rss( urls='https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml', maxItems=3 );
+			println( feedData )
+			count = feedData.items.size()
+			""",
+		    context
+		);
+		// @formatter:on
+
+		assertThat( variables.getAsInteger( Key.of( "count" ) ) ).isEqualTo( 3 );
 	}
 
 }

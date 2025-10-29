@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ortus.boxlang.moduleslug.components;
+package ortus.boxlang.feed.components;
 
 import java.util.Set;
 
@@ -30,15 +30,10 @@ import ortus.boxlang.runtime.validation.Validator;
 @BoxComponent( allowsBody = false )
 public class Feed extends Component {
 
-	static Key	locationKey	= Key.of( "location" );
-	static Key	shoutKey	= Key.of( "shout" );
-
 	public Feed() {
 		super();
 		declaredAttributes = new Attribute[] {
 		    new Attribute( Key._NAME, "string", Set.of( Validator.REQUIRED ) ),
-		    new Attribute( locationKey, "string", "world", Set.of( Validator.REQUIRED, Validator.valueOneOf( "world", "universe" ) ) ),
-		    new Attribute( shoutKey, "boolean", false, Set.of( Validator.REQUIRED ) ),
 		};
 	}
 
@@ -58,13 +53,6 @@ public class Feed extends Component {
 	 *
 	 */
 	public BodyResult _invoke( IBoxContext context, IStruct attributes, ComponentBody body, IStruct executionState ) {
-		String			name		= attributes.getAsString( Key._NAME );
-		String			location	= attributes.getAsString( locationKey );
-		Boolean			shout		= attributes.getAsBoolean( shoutKey );
-
-		StringBuilder	sb			= new StringBuilder();
-		String			greeting	= sb.append( "Hello, " ).append( location ).append( " - from " ).append( name ).append( "." ).toString();
-		context.writeToBuffer( shout ? greeting.toUpperCase() : greeting );
 
 		return DEFAULT_RETURN;
 	}

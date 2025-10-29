@@ -31,21 +31,52 @@ class {
 	 *
 	 * @urls URL or Array of URLs to read RSS feed from
 	 * @filter (optional) A filter closure/lambda to filter feed items by certain criteria
+	 * @maxItems (optional) Maximum number of items to return (0 = unlimited)
 	 *
-	 * @return Array of struct feed items with title, content, description, pubdate, updated, link, author, category, categories, guid, isPermaLink, comments, enclosures, channelTitle
+	 * @return Struct with 'items' array and 'channel' metadata
 	 */
-    function invoke( required urls, filter=( i ) -> true ) {
+    function invoke( required urls, filter=( i ) -> true, numeric maxItems=0 ) {
 
 		if( isSimpleValue( urls ) ) urls = [ urls ]
 
 		// Now read the feeds
-		items = variables.rssOb
+		var itemStream = variables.rssOb
 			.read( urls )
 			.filter( filter )
 			.sorted()
-			.toList()
 
-		return items.map( i => {
+		// Apply maxItems limit if specified
+		if( maxItems > 0 ) {
+			itemStream = itemStream.limit( maxItems )
+		}
+
+		items = itemStream.toList()
+
+		// Extract channel metadata from first item (all items share the same channel)
+		var channelInfo = {}
+		if( items.size() > 0 ) {
+			var channel = items[ 1 ].getChannel()
+			if( !isNull( channel ) ) {
+				channelInfo = {
+					title: isNull( channel.getTitle() ) ? '' : channel.getTitle(),
+					description: isNull( channel.getDescription() ) ? '' : channel.getDescription(),
+					link: isNull( channel.getLink() ) ? '' : channel.getLink(),
+					language: channel.getLanguage().orElse( '' ),
+					copyright: channel.getCopyright().orElse( '' ),
+					lastBuildDate: channel.getLastBuildDate().orElse( '' ),
+					generator: channel.getGenerator().orElse( '' ),
+					image: ''
+				}
+
+				// Get channel image if available
+				channel.getImage().ifPresent( img => {
+					var imgUrl = img.getUrl()
+					channelInfo.image = isNull( imgUrl ) || !len( imgUrl ) ? '' : imgUrl
+				} )
+			}
+		}
+
+		var mappedItems = items.map( i => {
 			var result = {
 				title: '',
 				content: '',
@@ -111,6 +142,10 @@ class {
 			return result
 		} )
 
+		return {
+			"items": mappedItems,
+			"channel": channelInfo
+		}
     }
 
 }
