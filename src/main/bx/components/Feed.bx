@@ -1,19 +1,44 @@
 /**
- * A BoxLang based component that can be called from either script or the templating language
+ * BoxLang Feed Component - Compatible with CFML cffeed tag
  * <p>
- * Each component can have 3 annotations
- * - @BoxComponent : Marks the class as a Component and registers as the name of the class
- * - @BoxComponent( "name" ) : Marks and sets the alias to the component
- * - @AllowsBody( boolean ) : Does the component allow a body
- * - @RequiresBody( boolean ) : Does the component require a body
+ * This component provides RSS and Atom feed reading and creation capabilities.
+ * It supports two actions: "read" (parse existing feeds) and "create" (generate new feeds).
  * <p>
- * The runtime also injects the following helpers into the variables scope:
+ * Basic Usage - Read Action:
+ * <pre>
+ * <bx:Feed
+ *     action="read"
+ *     source="https://example.com/feed.xml"
+ *     result="feedData" />
+ * </pre>
  * <p>
- * - newBuffer() : Create and return a new StringBuffer
- * - newBuilder() : Create and return a new StringBuilder
- * - processBody( context, body, [buffer] ) : Process the body of a component
- * - getName() : Get the name of the component
+ * Basic Usage - Create Action:
+ * <pre>
+ * <bx:Feed
+ *     action="create"
+ *     properties="#feedProperties#"
+ *     data="#feedItems#"
+ *     xmlVar="feedXml"
+ *     outputFile="/path/to/feed.xml" />
+ * </pre>
+ * <p>
+ * @attribute.action - string, required - Action to perform: "read" or "create". Default: "read"
+ * @attribute.source - string, required for read - URL or file path to the feed to read
+ * @attribute.result - string, optional - Variable name to store the feed data (read action)
+ * @attribute.properties - struct, required for create - Feed metadata (title, description, link, etc.)
+ * @attribute.data - array/query, required for create - Feed items/entries
+ * @attribute.columnMap - struct, optional - Map query columns to feed fields (for query data)
+ * @attribute.outputFile - string, optional - File path to write the generated feed XML
+ * @attribute.overwrite - boolean, optional - Whether to overwrite existing file. Default: false
+ * @attribute.xmlVar - string, optional - Variable name to store the generated XML string
+ * @attribute.timeout - numeric, optional - HTTP timeout in seconds. Default: 60
+ * @attribute.userAgent - string, optional - Custom User-Agent for HTTP requests
+ * @attribute.escapeChars - boolean, optional - Escape special characters in create action. Default: false
+ * @attribute.name - string, deprecated - Backward compatibility alias for "result"
+ * @attribute.query - any, deprecated - Backward compatibility alias for "data"
  */
+import bxModules.bxrss.models.FeedUtil;
+
 @BoxComponent( "Feed" )
 @AllowsBody( false )
 @RequiresBody( false )
@@ -36,35 +61,138 @@ class{
 	property name="log";
 
 	/**
-	 * Does something amazing
-	 *
-	 * <pre>
-	 * bx:exampleComponent{}
-	 * </pre>
+	 * Main invoke method - routes to read or create action
 	 *
 	 * @param context The context of the execution (IBoxContext)
 	 * @param attributes The attributes of the component that were passed in
-	 * @param body The body of the component (ComponentBody lambda) that you can pass to `processBody(context, body, [buffer])` for execution and buffer retreival
-	 * @param executionState The execution state of the component. Each component get's one as an isolated state.
+	 * @param body The body of the component (not used)
+	 * @param executionState The execution state of the component
 	 *
-	 * @return A BodyResult instance or null for a default result return.
+	 * @return A BodyResult instance or null for a default result return
 	 */
 	function invoke( required context, Struct attributes, any body, Struct executionState ){
-		// A buffer to capture the body output
-		var	buffer		= newBuffer();
-		// Process the body lambda internally, calls all sub-components and get's output into the buffer
-		var	bodyResult	= processBody( context, body, buffer );
+		// Get action (default to "read")
+		var action = attributes.action ?: "read"
 
-		// If there was a return statement inside our body, we early exit now
-		if ( bodyResult.isEarlyExit() ) {
-			return bodyResult;
+		// Handle backward compatibility
+		if( structKeyExists( attributes, "name" ) && !structKeyExists( attributes, "result" ) ) {
+			attributes.result = attributes.name
+		}
+		if( structKeyExists( attributes, "query" ) && !structKeyExists( attributes, "data" ) ) {
+			attributes.data = attributes.query
 		}
 
-		// SILLY Example: Reverse the content
-		// reverse the buffer contents and place into a string
-		var newContent	= buffer.toString();
-		// output it to the page buffer
-		context.writeToBuffer( newContent );
+		// Route to appropriate action
+		if( action == "create" ) {
+			createAction( context, attributes )
+		} else if( action == "read" ) {
+			readAction( context, attributes )
+		} else {
+			throw(
+				type="InvalidAction",
+				message="Invalid action '#action#'. Must be 'read' or 'create'."
+			)
+		}
+	}
+
+	/**
+	 * Read action - Parse an RSS/Atom feed from URL or file
+	 */
+	private function readAction( required context, required struct attributes ) {
+		// Validate required attributes
+		if( !structKeyExists( attributes, "source" ) ) {
+			throw(
+				type="MissingAttribute",
+				message="The 'source' attribute is required for read action."
+			)
+		}
+
+		// Get optional parameters with defaults
+		var timeout = attributes.timeout ?: 60
+		var userAgent = attributes.userAgent ?: ""
+		var maxItems = attributes.maxItems ?: 0
+		var itunes = attributes.itunes ?: false
+		var mediaRss = attributes.mediaRss ?: false
+
+		// Call FeedUtil.readFeed()
+		var feedData = FeedUtil.readFeed(
+			urls = attributes.source,
+			maxItems = maxItems,
+			itunes = itunes,
+			mediaRss = mediaRss,
+			userAgent = userAgent,
+			timeout = timeout
+		)
+
+		// Store result in variables scope if result attribute specified
+		if( structKeyExists( attributes, "result" ) ) {
+			context.getScopeNearby( "variables" ).put( attributes.result, feedData )
+		}
+	}
+
+	/**
+	 * Create action - Generate an RSS/Atom feed from properties and data
+	 */
+	private function createAction( required context, required struct attributes ) {
+		// Validate required attributes
+		if( !structKeyExists( attributes, "properties" ) ) {
+			throw(
+				type="MissingAttribute",
+				message="The 'properties' attribute is required for create action."
+			)
+		}
+		if( !structKeyExists( attributes, "data" ) ) {
+			throw(
+				type="MissingAttribute",
+				message="The 'data' attribute is required for create action."
+			)
+		}
+
+		// Get optional parameters with defaults
+		var columnMap = attributes.columnMap ?: {}
+		var feedType = attributes.feedType ?: "rss_2.0"
+		var escapeChars = attributes.escapeChars ?: false
+		var overwrite = attributes.overwrite ?: false
+
+		// Call FeedUtil.createFeed()
+		var feedResult = FeedUtil.createFeed(
+			properties = attributes.properties,
+			data = attributes.data,
+			columnMap = columnMap,
+			feedType = feedType,
+			escapeChars = escapeChars
+		)
+
+		// Store XML in variable if xmlVar specified
+		if( structKeyExists( attributes, "xmlVar" ) ) {
+			context.getScopeNearby( "variables" ).put( attributes.xmlVar, feedResult.xml )
+		}
+
+		// Write to file if outputFile specified
+		if( structKeyExists( attributes, "outputFile" ) ) {
+			var filePath = attributes.outputFile
+
+			// Check if file exists and overwrite is false
+			if( fileExists( filePath ) && !overwrite ) {
+				throw(
+					type="FileExists",
+					message="File '#filePath#' already exists. Set overwrite=true to replace it."
+				)
+			}
+
+			// Write the XML to file
+			fileWrite( filePath, feedResult.xml )
+		}
+
+		// Store result struct if result attribute specified
+		if( structKeyExists( attributes, "result" ) ) {
+			var resultData = {
+				xml: feedResult.xml,
+				feedType: feedType,
+				itemCount: isArray( attributes.data ) ? arrayLen( attributes.data ) : attributes.data.recordCount
+			}
+			context.getScopeNearby( "variables" ).put( attributes.result, resultData )
+		}
 	}
 
 }

@@ -43,8 +43,10 @@ dependencies {
 		testImplementation files( 'src/test/resources/libs/boxlang-' + boxlangVersion + '.jar' )
 	}
 
-	// Implementation Dependencies FOR THIS MODULE
+	// RSS Reader (Apache 2.0 license)
      implementation 'com.apptasticsoftware:rssreader:3.11.0'
+	 // Rome for RSS/Atom feed creation (Apache 2.0 license)
+	 implementation 'com.rometools:rome:2.1.0'
 
 	// Test Frameworks
 	testImplementation "org.junit.jupiter:junit-jupiter:6.+"
@@ -165,6 +167,7 @@ spotless {
  * - Copies the src/main/bx/** to build/module/ folder.
  */
 task createModuleStructure(type: Copy) {
+    dependsOn jar, shadowJar
     from( 'build/libs' ) {
 		include "${project.name}-${version}.jar"
         into 'libs'

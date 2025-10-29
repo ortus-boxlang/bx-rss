@@ -18,15 +18,19 @@
 import java:com.apptasticsoftware.rssreader.RssReader@bxrss;
 import java:com.apptasticsoftware.rssreader.module.itunes.ItunesRssReader@bxrss;
 import java:com.apptasticsoftware.rssreader.module.mediarss.MediaRssReader@bxrss;
+import java:com.rometools.rome.feed.synd.SyndFeedImpl@bxrss;
+import java:com.rometools.rome.feed.synd.SyndEntryImpl@bxrss;
+import java:com.rometools.rome.feed.synd.SyndContentImpl@bxrss;
+import java:com.rometools.rome.io.SyndFeedOutput@bxrss;
 
 class{
 
 	static {
-		rssOb = new RssReader();
-		itunesRssOb = new ItunesRssReader();
-		mediaRssOb = new MediaRssReader();
-		defaultUserAgent = "BoxLang-RSS-Module/1.0 (+https://boxlang.io)";
-		defaultTimeout = 25;
+		rssOb = new RssReader()
+		itunesRssOb = new ItunesRssReader()
+		mediaRssOb = new MediaRssReader()
+		defaultUserAgent = "BoxLang-RSS-Module/1.0 (+https://boxlang.io)"
+		defaultTimeout = 25
 	}
 
 	/**
@@ -327,5 +331,143 @@ class{
 		}
 
 		return specs
+	}
+
+	/**
+	 * Creates an RSS or Atom feed from the given properties and data.
+	 *
+	 * @param properties Struct containing feed metadata (title, description, link, etc.)
+	 * @param data Array or Query of feed items/entries
+	 * @param columnMap Struct mapping query columns to feed item fields (optional, for query data)
+	 * @param feedType Feed type: "rss_2.0" (default), "atom_1.0", etc.
+	 * @param escapeChars Boolean to escape special characters for W3C compliance (default false)
+	 *
+	 * @return Struct with 'xml' (feed XML string) and 'feedObject' (SyndFeed instance)
+	 */
+	static function createFeed(
+		required struct properties,
+		required data,
+		struct columnMap = {},
+		string feedType = "rss_2.0",
+		boolean escapeChars = false
+	) {
+		// Create feed object
+		var feed = new SyndFeedImpl()
+		feed.setFeedType( arguments.feedType )
+
+		// Set feed properties from properties struct
+		if( structKeyExists( arguments.properties, "title" ) ) {
+			feed.setTitle( arguments.properties.title )
+		}
+		if( structKeyExists( arguments.properties, "link" ) ) {
+			feed.setLink( arguments.properties.link )
+		}
+		if( structKeyExists( arguments.properties, "description" ) ) {
+			feed.setDescription( arguments.properties.description )
+		}
+		if( structKeyExists( arguments.properties, "author" ) ) {
+			feed.setAuthor( arguments.properties.author )
+		}
+		if( structKeyExists( arguments.properties, "language" ) ) {
+			feed.setLanguage( arguments.properties.language )
+		}
+		if( structKeyExists( arguments.properties, "copyright" ) ) {
+			feed.setCopyright( arguments.properties.copyright )
+		}
+		if( structKeyExists( arguments.properties, "publishedDate" ) ) {
+			// Convert to Java Date if needed
+			var pubDate = isDate( arguments.properties.publishedDate ) ?
+				arguments.properties.publishedDate :
+				parseDateTime( arguments.properties.publishedDate )
+			feed.setPublishedDate( pubDate )
+		}
+
+		// Create Java ArrayList for entries
+		var ArrayList = createObject( "java", "java.util.ArrayList" )
+		var entries = ArrayList.init()
+		var itemData = isArray( arguments.data ) ? arguments.data : queryToArray( arguments.data )
+
+		for( var item in itemData ) {
+			var entry = new SyndEntryImpl()
+
+			// Map fields based on columnMap or direct struct keys
+			var titleField = structKeyExists( arguments.columnMap, "title" ) ? arguments.columnMap.title : "title"
+			var linkField = structKeyExists( arguments.columnMap, "link" ) ? arguments.columnMap.link : "link"
+			var descField = structKeyExists( arguments.columnMap, "description" ) ? arguments.columnMap.description : "description"
+			var contentField = structKeyExists( arguments.columnMap, "content" ) ? arguments.columnMap.content : "content"
+			var authorField = structKeyExists( arguments.columnMap, "author" ) ? arguments.columnMap.author : "author"
+			var pubDateField = structKeyExists( arguments.columnMap, "publishedDate" ) ? arguments.columnMap.publishedDate : "publishedDate"
+			var categoryField = structKeyExists( arguments.columnMap, "category" ) ? arguments.columnMap.category : "category"
+
+			// Set entry fields
+			if( structKeyExists( item, titleField ) ) {
+				entry.setTitle( escapeChars ? xmlFormat( item[ titleField ] ) : item[ titleField ] )
+			}
+			if( structKeyExists( item, linkField ) ) {
+				entry.setLink( item[ linkField ] )
+			}
+			if( structKeyExists( item, authorField ) ) {
+				entry.setAuthor( item[ authorField ] )
+			}
+			if( structKeyExists( item, pubDateField ) ) {
+				var itemPubDate = isDate( item[ pubDateField ] ) ?
+					item[ pubDateField ] :
+					parseDateTime( item[ pubDateField ] )
+				entry.setPublishedDate( itemPubDate )
+			}
+
+			// Set description/content
+			if( structKeyExists( item, descField ) || structKeyExists( item, contentField ) ) {
+				var description = new SyndContentImpl()
+				description.setType( "text/html" )
+
+				var contentText = structKeyExists( item, contentField ) ? item[ contentField ] : item[ descField ]
+				description.setValue( escapeChars ? xmlFormat( contentText ) : contentText )
+
+				entry.setDescription( description )
+			}
+
+			// Add categories if present
+			if( structKeyExists( item, categoryField ) ) {
+				var catArrayList = ArrayList.init()
+				var categoryValue = item[ categoryField ]
+
+				// Handle comma-separated list or array
+				if( isSimpleValue( categoryValue ) ) {
+					categoryValue = listToArray( categoryValue )
+				}
+
+				for( var cat in categoryValue ) {
+					var SyndCategoryImpl = createObject( "java", "com.rometools.rome.feed.synd.SyndCategoryImpl@bxrss" )
+					var category = SyndCategoryImpl.init()
+					category.setName( trim( cat ) )
+					catArrayList.add( category )
+				}
+
+				entry.setCategories( catArrayList )
+			}
+
+			entries.add( entry )
+		}
+
+		feed.setEntries( entries )
+
+		// Generate XML output
+		var output = new SyndFeedOutput()
+		var xmlString = output.outputString( feed )
+
+		return {
+			"xml": xmlString,
+			"feedObject": feed
+		}
+	}	/**
+	 * Helper to convert query to array of structs
+	 */
+	private static function queryToArray( required query q ) {
+		var result = []
+		for( var row in q ) {
+			result.append( row )
+		}
+		return result
 	}
 }

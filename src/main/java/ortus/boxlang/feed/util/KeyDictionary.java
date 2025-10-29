@@ -21,6 +21,24 @@ import ortus.boxlang.runtime.scopes.Key;
  */
 public class KeyDictionary {
 
-	public static final Key moduleName = new Key( "bxrss" );
+	public static final Key	moduleName	= new Key( "bxrss" );
+
+	// Feed component attributes
+	public static final Key	action		= new Key( "action" );
+	public static final Key	source		= new Key( "source" );
+	public static final Key	result		= new Key( "result" );
+	public static final Key	properties	= new Key( "properties" );
+	public static final Key	data		= new Key( "data" );
+	public static final Key	columnMap	= new Key( "columnMap" );
+	public static final Key	outputFile	= new Key( "outputFile" );
+	public static final Key	overwrite	= new Key( "overwrite" );
+	public static final Key	xmlVar		= new Key( "xmlVar" );
+	public static final Key	timeout		= new Key( "timeout" );
+	public static final Key	userAgent	= new Key( "userAgent" );
+	public static final Key	escapeChars	= new Key( "escapeChars" );
+
+	// Deprecated CFML attributes (for backward compatibility)
+	public static final Key	name		= new Key( "name" );
+	public static final Key	query		= new Key( "query" );
 
 }
