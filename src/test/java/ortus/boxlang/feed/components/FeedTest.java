@@ -473,7 +473,7 @@ public class FeedTest extends BaseIntegrationTest {
 		runtime.executeSource(
 		    """
 		    bx:feed action="read" source="https://www.engadget.com/rss.xml" properties="metadata" maxItems="3";
-		    
+
 		    hasTitle = structKeyExists(metadata, "title");
 		    hasDescription = structKeyExists(metadata, "description");
 		    hasLink = structKeyExists(metadata, "link");
@@ -497,7 +497,7 @@ public class FeedTest extends BaseIntegrationTest {
 		runtime.executeSource(
 		    """
 		    bx:feed action="read" source="https://www.engadget.com/rss.xml" query="items" maxItems="5";
-		    
+
 		    isItemsArray = isArray(items);
 		    itemCount = arrayLen(items);
 		    hasFirstItem = itemCount > 0;
@@ -520,7 +520,7 @@ public class FeedTest extends BaseIntegrationTest {
 		runtime.executeSource(
 		    """
 		    bx:feed action="read" source="https://www.engadget.com/rss.xml" xmlVar="rawXml" maxItems="3";
-		    
+
 		    hasXml = len(rawXml) > 0;
 		    hasRssTag = findNoCase("<rss", rawXml) > 0 || findNoCase("<feed", rawXml) > 0;
 		    hasChannelOrFeed = findNoCase("<channel", rawXml) > 0 || findNoCase("<feed", rawXml) > 0;
@@ -556,7 +556,7 @@ public class FeedTest extends BaseIntegrationTest {
 		// @formatter:on
 
 		assertThat( variables.getAsBoolean( Key.of( "fileWasCreated" ) ) ).isTrue();
-		
+
 		// Verify file has content
 		String content = Files.readString( tempFile.toPath() );
 		assertThat( content ).isNotEmpty();
@@ -569,20 +569,20 @@ public class FeedTest extends BaseIntegrationTest {
 		// @formatter:off
 		runtime.executeSource(
 		    """
-		    bx:feed 
-		        action="read" 
-		        source="https://www.engadget.com/rss.xml" 
+		    bx:feed
+		        action="read"
+		        source="https://www.engadget.com/rss.xml"
 		        result="fullData"
 		        properties="metadata"
 		        query="items"
 		        xmlVar="rawXml"
 		        maxItems="3";
-		    
+
 		    hasFullData = structKeyExists(variables, "fullData");
 		    hasMetadata = structKeyExists(variables, "metadata");
 		    hasItems = structKeyExists(variables, "items");
 		    hasRawXml = structKeyExists(variables, "rawXml");
-		    
+
 		    fullDataHasChannel = hasFullData && structKeyExists(fullData, "channel");
 		    fullDataHasItems = hasFullData && structKeyExists(fullData, "items");
 		    metadataHasTitle = hasMetadata && structKeyExists(metadata, "title");
@@ -597,7 +597,7 @@ public class FeedTest extends BaseIntegrationTest {
 		assertThat( variables.getAsBoolean( Key.of( "hasMetadata" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "hasItems" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "hasRawXml" ) ) ).isTrue();
-		
+
 		assertThat( variables.getAsBoolean( Key.of( "fullDataHasChannel" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "fullDataHasItems" ) ) ).isTrue();
 		assertThat( variables.getAsBoolean( Key.of( "metadataHasTitle" ) ) ).isTrue();
@@ -612,7 +612,7 @@ public class FeedTest extends BaseIntegrationTest {
 		runtime.executeSource(
 		    """
 		    bx:feed action="read" source="https://www.engadget.com/rss.xml" name="feedData" maxItems="3";
-		    
+
 		    hasFeedData = structKeyExists(variables, "feedData");
 		    hasChannel = hasFeedData && structKeyExists(feedData, "channel");
 		    hasItems = hasFeedData && structKeyExists(feedData, "items");
