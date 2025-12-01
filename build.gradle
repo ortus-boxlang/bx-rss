@@ -44,7 +44,7 @@ dependencies {
 	}
 
 	// RSS Reader (Apache 2.0 license)
-     implementation 'com.apptasticsoftware:rssreader:3.11.0'
+     implementation 'com.apptasticsoftware:rssreader:3.12.0'
 	 // Rome for RSS/Atom feed creation (Apache 2.0 license)
 	 implementation 'com.rometools:rome:2.1.0'
 
